@@ -1,0 +1,57 @@
+# Local environments and generated files
+.venv/
+venv/
+.pytest_cache/
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+release/
+*.log
+.DS_Store
+
+# Private research, samples, labels, and provider configuration
+.private/
+experiments/
+datasets/
+data/
+models/
+checkpoints/
+.env
+.env.*
+.pypirc
+.netrc
+pypi-token
+credentials.json
+credentials.yml
+credentials.yaml
+config/annotation_models/
+
+# Credentials and model artifacts
+*.pem
+*.key
+*.p12
+*.pfx
+*.onnx
+*.pt
+*.pth
+*.ckpt
+*.safetensors
+*.bin
+*.zip
+*.tar.gz
+
+# Invoice documents and raw sample media (add public fixtures deliberately)
+*.pdf
+*.ofd
+*.xml
+*.png
+*.jpg
+*.jpeg
+*.webp
+*.tif
+*.tiff
+*.bmp
+*.jsonl
+*.parquet
