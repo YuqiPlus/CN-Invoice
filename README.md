@@ -1,87 +1,158 @@
-# cninvoice
+# CN-Invoice
 
-将中国发票文件读取为 Python `Invoice` 对象。优先读取 PDF、OFD、XML 中的文字和结构化数据；图片或读取不完整的文件可使用本地视觉模型与 OCR。
+中国发票与报销票据解析库：输入 PDF、OFD、XML 或图片，返回统一的 Python `Invoice` 对象。
 
-适用于自动提取后由用户核对的报销流程。金额使用 `Decimal`，识别不到返回 `None`，不把空值当作零，不通过加减补出缺失金额。
+优先解析文件中的结构化数据和文字，必要时接入本地视觉模型与 OCR。适合用于报销系统、发票归档和票据信息提取。
+
+- 支持增值税发票、数电发票以及铁路、航空等报销票据的数据结构。
+- 金额使用 `Decimal`，缺失字段返回 `None`，保留发票号码的前导零。
+- 提供字段来源、金额一致性检查和待复核标记。
+- 支持按票种配置本地专用模型，也可选用云端识别或 AI 复核。
 
 ## 安装
 
-需要 Python 3.10 或更新版本。当前版本为 `0.1.0a11`，尚未上传 PyPI。现在可从源码安装：
+Python 3.10+。
+
+从 GitHub 安装：
 
 ```bash
-git clone https://github.com/YuqiPlus/CN-Invoice.git
-cd CN-Invoice
-python -m pip install .
-# 需要本地图片识别依赖时：python -m pip install ".[vision]"
+python -m pip install "git+https://github.com/YuqiPlus/CN-Invoice.git"
 ```
 
-发布到 PyPI 后，可以使用：
+PyPI 发行版的安装命令：
 
 ```bash
 python -m pip install --pre cninvoice
 ```
 
-基础安装支持直接读取文件；识别图片还需安装本地推理依赖，并另行取得模型文件：
+本地图片识别需要额外安装 `vision` 依赖：
 
 ```bash
 python -m pip install --pre "cninvoice[vision]"
+# 或从 GitHub 安装：
+python -m pip install "cninvoice[vision] @ git+https://github.com/YuqiPlus/CN-Invoice.git"
 ```
 
-代码包不包含模型、真实发票样本或云端密钥。不会自动联网下载模型或上传发票。
-
-## 直接读取 PDF、OFD 或 XML
+## 快速开始
 
 ```python
 from cninvoice import read_invoice
 
 invoice = read_invoice("invoice.pdf")
-print(invoice.invoice_number)
-print(invoice.amount)         # 不含税合计，Decimal 或 None
-print(invoice.tax)            # 税额，Decimal 或 None
-print(invoice.total)          # 价税合计，Decimal 或 None
-print(invoice.needs_review)
+
+print(invoice.kind)            # 票据类型
+print(invoice.invoice_number)  # 发票号码
+print(invoice.amount)          # 不含税金额
+print(invoice.tax)             # 税额
+print(invoice.total)           # 价税合计
+print(invoice.needs_review)    # 是否需要人工核对
+
+# 转为 JSON，金额序列化为字符串
 print(invoice.model_dump_json(indent=2))
 ```
 
-支持文件路径、字节串和二进制文件对象。仅使用基础接口时，图片不会自动识别；结果会带上缺少识图后端的提示。
+`read_invoice()` 接受文件路径、`bytes` 或二进制文件对象。PDF、OFD、XML 优先直接解析；扫描件和图片需要配置识图后端。
 
-## 使用本地模型识别图片
+```python
+from pathlib import Path
+from cninvoice import read_invoice
 
-当前仓库不提供预训练模型下载；图片识别需要自行准备兼容模型。取得模型包后，将其解压，找到包含 `bundle.json` 的目录，然后：
+invoice = read_invoice(Path("invoice.xml"))
+invoice = read_invoice(Path("invoice.ofd").read_bytes())
+
+with open("invoice.pdf", "rb") as file:
+    invoice = read_invoice(file)
+```
+
+## 返回字段
+
+| 字段 | 类型 | 含义 |
+| --- | --- | --- |
+| `kind` | `InvoiceKind` | 增值税发票、铁路客票、航空行程单等票据类型 |
+| `invoice_number` | `str \| None` | 发票号码，保留前导零 |
+| `invoice_code` | `str \| None` | 发票代码 |
+| `issue_date` | `date \| None` | 开票日期 |
+| `amount` | `Decimal \| None` | 不含税合计金额 |
+| `tax` | `Decimal \| None` | 合计税额 |
+| `total` | `Decimal \| None` | 价税合计或票据总金额 |
+| `buyer` / `seller` | `Party` | 购销方名称、税号、地址及银行信息 |
+| `items` | `list[LineItem]` | 明细项目 |
+| `rail` / `air` | `RailJourney \| AirJourney \| None` | 铁路或航空行程信息 |
+| `sources` | `dict[str, Evidence]` | 字段来源及可用的票面证据 |
+| `issues` | `list[Issue]` | 缺项、冲突和校验提示 |
+| `needs_review` | `bool` | 是否需要人工核对 |
+
+字段是否有值取决于票面内容、文件格式和识别后端。未识别出的金额保持 `None`；票面明确为零才返回零。`amount`、`tax`、`total` 全部读取到时会检查相加关系，但不会通过计算补齐缺项。
+
+## 本地图片识别
+
+本地识别使用 ONNX 字段检测器与 OCR，支持 CPU 推理，不需要部署大语言模型。按票据类型选择一个专用检测器，增值税模型重点提取发票号码、不含税金额、税额和价税合计。
+
+模型文件与 Python 包分开管理。**仓库目前提供推理及训练代码，尚无公开的预训练模型下载。** 使用图片识别前，需要准备兼容的模型包或自行训练并导出模型。
+
+### 加载模型包
+
+将模型包解压，传入包含 `bundle.json` 的目录：
 
 ```python
 from cninvoice import ReaderConfig
 
-reader = ReaderConfig.from_bundle("./cninvoice-vat-models-0.1.0a11").create_reader()
+reader = ReaderConfig.from_bundle("./models/vat-bundle").create_reader()
 invoice = reader.read("invoice.png")
+
 print(invoice.total)
 print(invoice.needs_review)
 ```
 
-模型包加载时校验文件大小与 SHA-256。运行使用 CPU，不需要 GPU、Torch 或大语言模型；完整模型包包含字段检测器及所需 OCR 文件。`ReaderConfig.from_bundle()` 不会下载或解压文件。也可通过 `specialist_model_dirs` 和 `ocr_model_dir` 手动指定本地模型目录。
+`from_bundle()` 校验模型文件的大小与 SHA-256，使用包内的检测器及 OCR 文件。
 
-增值税模型当前重点读取价税合计、不含税金额、税额和发票号码。模型包包含哪些票种，就启用哪些专用模型；未提供对应模型的票种会提示缺少能力，不自动请求云端服务。
+### 直接指定模型目录
 
-## 结果与限制
+```python
+from cninvoice import ReaderConfig
 
-- `amount`、`tax`、`total` 均允许为空。票面明确印着 `0.00` 才能得到零元；星号和空白不自动变为零。
-- 三个金额均读取到时检查相加关系；缺项、冲突及校验失败会记录在 `invoice.issues`。
-- OCR／模型结果保持待复核状态。字段证据可在 `invoice.sources` 中查看。
-- 视觉后端目前要求一张图片或单页文件；多张不同发票应拆分处理。
-- 现有实验不能保证跨行业、红字发票和严重模糊图片的全部字段都可读出。`Invoice` 对象的其他字段也可能为空。
-- AI 复核及云服务是显式可选配置，不是本地识别的必需依赖。
+reader = ReaderConfig(
+    recognizer="specialists",
+    specialist_model_dirs={"vat_invoice": "./models/vat"},
+    ocr_model_dir="./models/ocr",
+).create_reader()
+
+invoice = reader.read("invoice.jpg")
+```
+
+检测器目录包含 `detector.onnx` 和 `model.json`。票种配置项包括 `vat_invoice`、`rail_einvoice`、`ride_itinerary`、`air_itinerary`；每项需要对应的模型。OCR 模型文件名及模型包构建方式见 [模型配置](https://github.com/YuqiPlus/CN-Invoice/blob/main/docs/MODELS.md)。
+
+视觉识别当前用于单张图片或单页文件。OCR／模型结果会标记为待复核，模糊、遮挡、红字及不同版式可能导致字段缺失。
+
+## 命令行
+
+```bash
+cninvoice invoice.pdf
+cninvoice invoice.xml
+cninvoice invoice.png --vision-model ./models/vat --ocr-models ./models/ocr
+```
+
+输出为 JSON。更多选项见 `cninvoice --help`。
 
 ## 开发与训练
 
 ```bash
+git clone https://github.com/YuqiPlus/CN-Invoice.git
+cd CN-Invoice
 python -m pip install -e ".[dev,benchmark]"
 python -m pytest
 ```
 
-训练另需 `python -m pip install -e ".[train,vision,benchmark]"`。`training/` 提供样本收集、可选云端标注、标注校验、按票种拆分、检测器训练及 ONNX 导出工具；各脚本使用 `--help` 查看参数。训练数据和云端配置由使用者自行准备，不随仓库提供。数据处理工具要求将私有输出放在 `.private/` 下。
+训练依赖：
 
-`tools/build_model_bundle.py` 用于打包本地推理文件，`tools/prepare_release.py` 用于构建并检查 Python 发行包。详细发布步骤见 [docs/PUBLISHING.md](https://github.com/YuqiPlus/CN-Invoice/blob/main/docs/PUBLISHING.md)。
+```bash
+python -m pip install -e ".[train,vision,benchmark]"
+```
+
+`training/` 包含样本准备、可选教师模型标注、标注校验、票种拆分、检测器训练和 ONNX 导出工具。各脚本通过 `--help` 查看参数。数据处理工具的私有输出放在 `.private/` 下。
+
+欢迎通过 [Issues](https://github.com/YuqiPlus/CN-Invoice/issues) 提交问题和通过 Pull Request 贡献改进。发行流程见 [发布指南](https://github.com/YuqiPlus/CN-Invoice/blob/main/docs/PUBLISHING.md)。
 
 ## 许可证
 
-cninvoice 的 Python 代码采用 MIT 许可证。独立模型、上游 OCR 模型和训练数据适用各自的发布说明；代码的 MIT 许可证不会自动替代这些文件的许可。
+代码采用 [MIT License](https://github.com/YuqiPlus/CN-Invoice/blob/main/LICENSE)。使用第三方模型或数据时，请保留其各自的许可证与来源说明。

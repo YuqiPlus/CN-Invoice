@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 name = "cninvoice"
 version = "0.1.0a11"
 description = "Local-first structured extraction of Chinese invoices and reimbursement tickets"
-readme = "README.pypi.md"
+readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]
 keywords = ["invoice", "fapiao", "vat", "ocr", "china"]
@@ -46,7 +46,7 @@ cninvoice = "cninvoice.cli:main"
 packages = ["src/cninvoice"]
 
 [tool.hatch.build.targets.sdist]
-include = ["/src", "/tests", "/examples", "/training", "/tools", "/docs", "/README.pypi.md", "/LICENSE", "/pyproject.toml"]
+include = ["/src", "/tests", "/examples", "/training", "/tools", "/docs", "/README.md", "/LICENSE", "/pyproject.toml"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

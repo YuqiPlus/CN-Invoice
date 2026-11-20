@@ -1,0 +1,87 @@
+name: Publish to PyPI
+
+on:
+  workflow_dispatch:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pypi-${{ github.event.release.tag_name }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Test and build
+    if: github.repository == 'YuqiPlus/CN-Invoice'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: python -m pip install -e ".[dev,benchmark]"
+      - name: Check release version
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          python - <<'PY'
+          import os
+          import tomllib
+          from pathlib import Path
+          from cninvoice import __version__
+          version = tomllib.loads(Path('pyproject.toml').read_text())['project']['version']
+          if __version__ != version:
+              raise SystemExit('Both package versions must match.')
+          tag = os.environ.get('RELEASE_TAG')
+          if tag and tag != 'v' + version:
+              raise SystemExit('Release tag must match the package version.')
+          PY
+      - name: Run tests
+        run: python -m pytest
+      - name: Build and validate distributions
+        run: python tools/prepare_release.py
+      - name: Collect distributions
+        run: |
+          python - <<'PY'
+          import shutil
+          import tomllib
+          from pathlib import Path
+          version = tomllib.loads(Path('pyproject.toml').read_text())['project']['version']
+          release = Path('release') / version
+          output = Path('dist')
+          output.mkdir()
+          for name in (f'cninvoice-{version}-py3-none-any.whl', f'cninvoice-{version}.tar.gz'):
+              shutil.copy2(release / name, output / name)
+          PY
+      - name: Store distributions
+        uses: actions/upload-artifact@v5
+        with:
+          name: distributions
+          path: dist/
+          if-no-files-found: error
+
+  publish:
+    name: Publish to PyPI
+    needs: build
+    if: github.event_name == 'release' && github.repository == 'YuqiPlus/CN-Invoice'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: pypi
+      url: https://pypi.org/p/cninvoice
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v6
+        with:
+          name: distributions
+          path: dist/
+      - name: Upload to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
