@@ -10,7 +10,7 @@ from .review import Reviewer, ConsistencyReviewer
 from .profiles import DocumentProfile
 from .specialists import SpecialistVisionBackend
 
-__version__ = "0.1.0a11"
+__version__ = "0.1.0"
 __all__ = [
     "Invoice", "InvoiceKind", "Party", "LineItem", "RailJourney", "AirJourney", "FlightSegment",
     "Evidence", "Issue", "Source", "InvoiceReader", "read_invoice", "Backend", "QwenBackend",

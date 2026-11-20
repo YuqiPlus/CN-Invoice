@@ -4,14 +4,13 @@ build-backend = "hatchling.build"
 
 [project]
 name = "cninvoice"
-version = "0.1.0a11"
+version = "0.1.0"
 description = "Local-first structured extraction of Chinese invoices and reimbursement tickets"
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]
 keywords = ["invoice", "fapiao", "vat", "ocr", "china"]
 classifiers = [
-  "Development Status :: 3 - Alpha",
   "Intended Audience :: Developers",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3 :: Only",

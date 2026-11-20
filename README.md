@@ -22,13 +22,13 @@ python -m pip install "git+https://github.com/YuqiPlus/CN-Invoice.git"
 PyPI 发行版的安装命令：
 
 ```bash
-python -m pip install --pre cninvoice
+python -m pip install cninvoice
 ```
 
 本地图片识别需要额外安装 `vision` 依赖：
 
 ```bash
-python -m pip install --pre "cninvoice[vision]"
+python -m pip install "cninvoice[vision]"
 # 或从 GitHub 安装：
 python -m pip install "cninvoice[vision] @ git+https://github.com/YuqiPlus/CN-Invoice.git"
 ```

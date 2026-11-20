@@ -50,7 +50,7 @@ def main():
         'sha256': hashlib.sha256(path.read_bytes()).hexdigest(),
     } for path in sorted(dest.rglob('*')) if path.is_file()}
     manifest = {'format': 'cninvoice-model-bundle', 'version': 1,
-                'minimum_cninvoice_version': '0.1.0a11',
+                'minimum_cninvoice_version': '0.1.0',
                 'specialists': {'vat_invoice': 'models/vat_invoice'}, 'ocr_models': 'ocr',
                 'model_card': 'MODEL_CARD.md', 'files': files}
     (dest / 'bundle.json').write_text(json.dumps(manifest, indent=2))

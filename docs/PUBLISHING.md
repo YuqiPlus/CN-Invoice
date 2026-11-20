@@ -25,8 +25,8 @@
 1. 确认 `pyproject.toml` 的 `project.version` 与 `src/cninvoice/__init__.py` 的 `__version__` 一致。
 2. 将修改提交并推送到 GitHub。已经上传过 PyPI 的版本需要换用新版本号。
 3. 打开 [创建 Release 页面](https://github.com/YuqiPlus/CN-Invoice/releases/new)。
-4. 创建与版本对应的标签，例如版本 `0.1.0a11` 对应 `v0.1.0a11`；目标选择包含本次修改的提交。
-5. 填写更新说明，alpha／beta 版本勾选 **Set as a pre-release**，点击 **Publish release**。
+4. 创建与版本对应的标签，例如版本 `0.1.0` 对应 `v0.1.0`；目标选择包含本次修改的提交。
+5. 填写更新说明。`0.1.0` 是正式版，不勾选 **Set as a pre-release**，点击 **Publish release**。
 6. 在仓库 **Actions → Publish to PyPI** 中查看测试、构建及发布结果。
 
 需要预先验证时，可在 **Actions → Publish to PyPI → Run workflow** 手动运行测试和构建；手动运行不会上传 PyPI。
@@ -36,7 +36,7 @@ Release 标签必须严格等于 `v` 加包版本号。工作流只在 Release �
 成功后，在新环境中验证：
 
 ```bash
-python -m pip install --pre "cninvoice==0.1.0a11"
+python -m pip install "cninvoice==0.1.0"
 python -c "import cninvoice; print(cninvoice.__version__)"
 cninvoice --help
 ```
@@ -53,12 +53,12 @@ python -m pytest
 python tools/prepare_release.py
 ```
 
-构建工具会检查包内文件、许可证元数据和项目说明。输出目录为 `release/<version>/`，已有目录不会覆盖。以 `0.1.0a11` 为例：
+构建工具会检查包内文件、许可证元数据和项目说明。输出目录为 `release/<version>/`，已有目录不会覆盖。以 `0.1.0` 为例：
 
 ```bash
 python -m twine upload --repository pypi --username __token__ \
-  release/0.1.0a11/cninvoice-0.1.0a11-py3-none-any.whl \
-  release/0.1.0a11/cninvoice-0.1.0a11.tar.gz
+  release/0.1.0/cninvoice-0.1.0-py3-none-any.whl \
+  release/0.1.0/cninvoice-0.1.0.tar.gz
 ```
 
 在密码提示中输入 PyPI API token。首次创建项目时使用具备创建权限的 token，项目创建后可改用项目级 token。不要把 token 放入仓库或命令参数。
